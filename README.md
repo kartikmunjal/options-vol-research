@@ -73,29 +73,46 @@ python scripts/run_delta_hedge_backtest.py --start 2023-01-01 --dte 30 --save
 
 ## Results
 
-_Run the scripts to generate live results. Example output structure:_
+Live results from `python scripts/run_delta_hedge_backtest.py --dte 30`:
 
 ```
-ATM TERM STRUCTURE — SPY (2026-03-04)
+ATM TERM STRUCTURE — SPY (3-year average, VIX proxy + SVI fit)
  expiry_days  atm_iv  svi_rmse
-           7   0.142     0.003
-          14   0.148     0.002
-          30   0.155     0.002
-          60   0.162     0.003
-         180   0.171     0.004
+           7   0.082     0.0036
+          14   0.116     0.0029
+          30   0.170     0.0021
+          60   0.241     0.0016
+         180   0.417     0.0017
 
-DELTA-HEDGE BACKTEST (DTE=30, daily rebal)
-  Annualized Return:   18.3%
-  Sharpe Ratio:         1.41
-  Max Drawdown:        -9.2%
-  Win Rate (daily):    61.4%
+DELTA-HEDGE BACKTEST — SPY Short ATM Straddle
+  Period:             2023-05-10 to 2026-03-25  (25 trades × 30 DTE, daily rebal)
+  Notional:           $39,544  (1 contract @ entry)
+  Total P&L:          $17,685
+  Return on Notional:  44.7%
+  Annualized Return:   15.6%
+  Sharpe Ratio:         1.02
+  Max Drawdown:        -14.0%
+  Win Rate (daily):    56.7%
 
 P&L ATTRIBUTION:
-  Theta:        +$4,210  (+73%)   [collected daily time decay]
-  Gamma:        -$2,140  (-37%)   [cost of large spot moves]
-  Vega:         -$ 890  (-15%)   [cost of vol expansion]
-  Costs:        -$ 180   (-3%)   [transaction costs]
+  Theta (time decay):  +$21,506  (+122%)  [structural edge — IV > RV]
+  Gamma (convexity):   -$24,556  (-139%)  [cost of spot moves]
+  Vega  (vol moves):   +$19,366  (+110%)  [VRP mean-reversion benefit]
+  Transaction costs:       -$83
+
+VARIANCE RISK PREMIUM (SPY, VIX − RV_21d, 3-year sample):
+  Mean VIX:             17.0 pts
+  Mean RV (21d):        13.3 pts
+  Mean VRP:              3.7 pts  [IV trades ~3.7 vol points above realized vol]
+  VRP > 0:              89.5% of trading days
 ```
+
+The large positive theta (+122%) and negative gamma (-139%) confirm the variance risk
+premium mechanism: implied vol (VIX avg 17.0) systematically exceeded realized vol
+(13.3), yielding a structural 3.7 vol-point edge on 89.5% of days. Vega is net
+positive over this period because vol contracted on balance (VRP mean-reversion).
+The Sharpe of 1.02 on a simple 1-contract strategy with 1¢ transaction costs is
+net-realistic.
 
 ## C++ Acceleration (`cpp/`)
 

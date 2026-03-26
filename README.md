@@ -194,7 +194,7 @@ surf.is_arbitrage_free()   # → True / False
 | IV strip N=100 | ~80 ms | ~3 ms | **25×** |
 | SVI calibrate (11 pts) | ~2.5 ms | ~0.15 ms | **17×** |
 
-Run `python cpp/benchmarks/bench_python.py` for machine-specific numbers.
+Run `python benchmarks/bench_pricer.py` for machine-specific numbers.
 
 ### Key Engineering Decisions
 

@@ -27,7 +27,7 @@ from dataclasses import dataclass, field
 import numpy as np
 import pandas as pd
 
-from src.pricing.black_scholes import all_greeks, price as bs_price, delta as bs_delta
+from src.pricing._pricer import all_greeks, price as bs_price, delta as bs_delta
 
 log = logging.getLogger(__name__)
 

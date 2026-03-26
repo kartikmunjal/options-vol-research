@@ -19,7 +19,6 @@ Expected speedup:
 
 import sys
 import time
-import textwrap
 from pathlib import Path
 
 import numpy as np
@@ -47,28 +46,27 @@ def py_bs_all_greeks(S, K, T, r, sigma, is_call, q=0.0):
     """Compute all 8 Greeks in Python — multiple norm.cdf/pdf calls."""
     d1, d2 = _d1d2(S, K, T, r, sigma, q)
     sqrt_T = np.sqrt(T)
-    nd1  = norm.cdf(d1 if is_call else -d1)
-    nd2  = norm.cdf(d2 if is_call else -d2)
-    phi  = norm.pdf(d1)
-    sign = 1 if is_call else -1
+    sign  = 1 if is_call else -1
+    nd1   = norm.cdf(sign * d1)   # Φ(±d1), reused across price/delta/theta
+    nd2   = norm.cdf(sign * d2)   # Φ(±d2), reused across price/rho/theta
+    phi   = norm.pdf(d1)
 
     Se_qT = S * np.exp(-q * T)
     Ke_rT = K * np.exp(-r * T)
 
-    price = sign * (Se_qT * norm.cdf(sign * d1) - Ke_rT * norm.cdf(sign * d2))
-    delta = sign * np.exp(-q * T) * norm.cdf(sign * d1)
+    price = sign * (Se_qT * nd1 - Ke_rT * nd2)
+    delta = sign * np.exp(-q * T) * nd1
     gamma = np.exp(-q * T) * phi / (S * sigma * sqrt_T)
     vega  = Se_qT * phi * sqrt_T * 0.01
     theta = (-(Se_qT * phi * sigma) / (2 * sqrt_T)
-             - sign * (r * Ke_rT * norm.cdf(sign * d2)
-                       - q * Se_qT * norm.cdf(sign * d1))) / 365.0
+             - sign * (r * Ke_rT * nd2 - q * Se_qT * nd1)) / 365.0
     vanna = -np.exp(-q * T) * phi * d2 / sigma
     volga = Se_qT * phi * sqrt_T * d1 * d2 / sigma
     charm_raw = -np.exp(-q * T) * phi * (
         2 * (r - q) * T - d2 * sigma * sqrt_T
     ) / (2 * T * sigma * sqrt_T)
     charm = sign * charm_raw / 365.0 if not is_call else charm_raw / 365.0
-    rho   = sign * Ke_rT * T * norm.cdf(sign * d2) * 1e-4
+    rho   = sign * Ke_rT * T * nd2 * 1e-4
 
     return dict(price=price, delta=delta, gamma=gamma, theta=theta,
                 vega=vega, vanna=vanna, volga=volga, charm=charm, rho=rho)
@@ -266,17 +264,16 @@ def check_correctness(vc):
 # ─────────────────────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
-    # Try to import the compiled extension
+    # vol_core.so is output to the repo root by both pip and CMake builds
+    repo_root = Path(__file__).resolve().parent.parent
+    sys.path.insert(0, str(repo_root))
     try:
-        # Add cpp/ to path so we can find vol_core.so
-        cpp_dir = Path(__file__).parent.parent
-        sys.path.insert(0, str(cpp_dir))
-        import vol_core as vc
+        import vol_core as vc  # type: ignore[import]  # compiled C++ extension
         print(f"Loaded vol_core version: {vc.__version__}")
     except ImportError as e:
         print(f"\nERROR: Could not import vol_core: {e}")
         print("\nBuild the extension first:")
-        print("  cd cpp && pip install -e . && cd ..")
+        print("  pip install -e cpp/          # pip build (recommended)")
         print("  # or:")
         print("  cmake -B cpp/build -DCMAKE_BUILD_TYPE=Release cpp && cmake --build cpp/build")
         sys.exit(1)

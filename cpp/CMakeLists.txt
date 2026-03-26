@@ -26,20 +26,23 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(pybind11)
 
-# ── Python extension module: vol_core ────────────────────────────────────────
-pybind11_add_module(vol_core src/bindings.cpp)
-target_include_directories(vol_core PRIVATE src)
+# C++ sources live in src/cpp/ at the repo root (one level above this CMakeLists)
+set(CPP_SRC_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../src/cpp")
 
-# Output the .so next to the notebooks so `import vol_core` works without install
+# ── Python extension module: vol_core ────────────────────────────────────────
+pybind11_add_module(vol_core "${CPP_SRC_DIR}/bindings.cpp")
+target_include_directories(vol_core PRIVATE "${CPP_SRC_DIR}")
+
+# Output the .so at repo root so `import vol_core` works without install
 set_target_properties(vol_core PROPERTIES
-    LIBRARY_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}
+    LIBRARY_OUTPUT_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/.."
 )
 
 # ── C++ unit tests (requires Catch2 v3) ──────────────────────────────────────
 find_package(Catch2 3 QUIET)
 if(Catch2_FOUND)
     add_executable(test_greeks tests/test_greeks.cpp)
-    target_include_directories(test_greeks PRIVATE src)
+    target_include_directories(test_greeks PRIVATE "${CPP_SRC_DIR}")
     target_link_libraries(test_greeks PRIVATE Catch2::Catch2WithMain)
     include(CTest)
     include(Catch)
@@ -53,7 +56,7 @@ endif()
 find_package(benchmark QUIET)
 if(benchmark_FOUND)
     add_executable(bench_surface benchmarks/bench_surface.cpp)
-    target_include_directories(bench_surface PRIVATE src)
+    target_include_directories(bench_surface PRIVATE "${CPP_SRC_DIR}")
     target_link_libraries(bench_surface PRIVATE benchmark::benchmark benchmark::benchmark_main)
     message(STATUS "Google Benchmark found — C++ benchmarks enabled")
 else()

@@ -17,9 +17,9 @@
 #include <vector>
 #include <numeric>
 
-#include "../src/black_scholes.hpp"
-#include "../src/iv_solver.hpp"
-#include "../src/svi.hpp"
+#include "black_scholes.hpp"
+#include "iv_solver.hpp"
+#include "svi.hpp"
 
 using namespace volcpp;
 

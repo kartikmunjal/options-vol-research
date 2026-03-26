@@ -26,10 +26,14 @@ if sys.platform == "linux":
 elif sys.platform == "darwin":
     compile_flags += ["-march=native"]
 
+# C++ sources are in src/cpp/ at the repo root, one level above this setup.py
+_repo_root = Path(__file__).resolve().parent.parent
+_cpp_src   = str(_repo_root / "src" / "cpp")
+
 ext = Pybind11Extension(
     name="vol_core",
-    sources=["src/bindings.cpp"],
-    include_dirs=["src"],
+    sources=[str(_repo_root / "src" / "cpp" / "bindings.cpp")],
+    include_dirs=[_cpp_src],
     extra_compile_args=compile_flags,
     cxx_std=17,
 )

@@ -15,16 +15,31 @@ This project builds the full quantitative infrastructure to:
 
 ```
 src/
+├── cpp/
+│   ├── black_scholes.hpp    # Templated BS pricer + all 8 Greeks, header-only
+│   ├── iv_solver.hpp        # Newton-Raphson + bisection fallback
+│   ├── svi.hpp              # SVI calibration + butterfly/calendar arb checks
+│   └── bindings.cpp         # pybind11 Python bindings (vol_core extension)
 ├── pricing/
-│   ├── black_scholes.py     # Hand-rolled BS pricing + 8 Greeks (no library calls)
-│   └── implied_vol.py       # Newton-Raphson IV solver with bisection fallback
+│   ├── _pricer.py           # Dispatch: C++ vol_core if built, else black_scholes.py
+│   ├── black_scholes.py     # Python reference pricer + 8 Greeks (kept for comparison)
+│   └── implied_vol.py       # Python IV solver (kept for comparison)
 ├── vol_surface/
-│   ├── svi.py               # SVI parametrization (Gatheral 2004) + arbitrage checks
+│   ├── svi.py               # Python SVI calibration (kept for comparison)
 │   └── surface.py           # Full surface construction pipeline
 ├── data/
 │   └── fetch.py             # yfinance options chain + historical prices + FRED rates
 └── backtest/
-    └── delta_hedge.py       # Daily delta-hedging engine + full P&L attribution
+    └── delta_hedge.py       # Delta-hedging engine — uses C++ pricer via _pricer.py
+benchmarks/
+└── bench_pricer.py          # Python vs C++ head-to-head timing with real numbers
+cpp/
+├── CMakeLists.txt           # cmake -B cpp/build -DCMAKE_BUILD_TYPE=Release cpp
+├── setup.py                 # pip install -e cpp/
+├── tests/
+│   └── test_greeks.cpp      # Catch2: put-call parity, FD Greeks, IV round-trip, SVI
+└── benchmarks/
+    └── bench_surface.cpp    # Google Benchmark microbenchmarks
 ```
 
 ## Key Design Decisions
@@ -114,48 +129,26 @@ positive over this period because vol contracted on balance (VRP mean-reversion)
 The Sharpe of 1.02 on a simple 1-contract strategy with 1¢ transaction costs is
 net-realistic.
 
-## C++ Acceleration (`cpp/`)
+## C++ Acceleration
 
-The `cpp/` directory is a drop-in high-performance rewrite of the pricing core in C++17,
-exposing a `vol_core` Python extension via **pybind11**. It is a strict superset of the
-Python layer: same formulas, same conventions, ~10–50× faster.
-
-### What's in `cpp/`
-
-```
-cpp/
-├── src/
-│   ├── black_scholes.hpp   # Templated BS pricer + all 8 Greeks (single-pass)
-│   ├── iv_solver.hpp       # Newton-Raphson + bisection fallback; parallel strip solve
-│   ├── svi.hpp             # SVI surface: analytic gradient, arbitrage checks, calibration
-│   └── bindings.cpp        # pybind11 module (py::vectorize for numpy compat)
-├── tests/
-│   └── test_greeks.cpp     # Catch2: put-call parity, FD verification, IV round-trip, SVI
-├── benchmarks/
-│   ├── bench_surface.cpp   # Google Benchmark microbenchmarks
-│   └── bench_python.py     # Python-side timing vs scipy reference
-├── CMakeLists.txt
-└── setup.py
-```
+The C++ core lives in `src/cpp/` alongside the Python source it accelerates.
+`src/pricing/_pricer.py` transparently routes to `vol_core` (C++) when the extension
+is built, falling back to `black_scholes.py` otherwise — no changes needed in calling
+code. The Python originals are kept for side-by-side comparison and testing.
 
 ### Build
 
-**Option A — pip (recommended for notebook use):**
 ```bash
-cd cpp
-pip install -e .
-cd ..
+# pip (recommended — outputs vol_core.so at repo root)
+pip install -e cpp/
 python -c "import vol_core; print(vol_core.__version__)"
-```
 
-**Option B — CMake (also builds C++ tests and benchmarks):**
-```bash
+# CMake (also compiles Catch2 tests and Google Benchmark)
 cmake -B cpp/build -DCMAKE_BUILD_TYPE=Release cpp
 cmake --build cpp/build -j$(nproc)
-# Run tests:
-./cpp/build/test_greeks
-# Run benchmarks:
-./cpp/build/bench_surface --benchmark_format=table
+./cpp/build/test_greeks                               # unit tests
+./cpp/build/bench_surface --benchmark_format=table    # C++ microbenchmarks
+python benchmarks/bench_pricer.py                     # Python vs C++ comparison
 ```
 
 Requirements: C++17 compiler (GCC ≥ 9 / Clang ≥ 10 / MSVC 2019+), CMake ≥ 3.15, Python ≥ 3.8.

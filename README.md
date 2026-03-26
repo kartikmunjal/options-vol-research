@@ -74,7 +74,7 @@ This integral is positive when **IV > RV** — the core bet.
 ## Quickstart
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/options-vol-research.git
+git clone https://github.com/kartikmunjal/options-vol-research.git
 cd options-vol-research
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
